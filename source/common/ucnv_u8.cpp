@@ -696,7 +696,9 @@ ucnv_UTF8FromUTF8(UConverterFromUnicodeArgs *pFromUArgs,
         // Use a single counter for source and target, counting the minimum of
         // the source length and the target capacity.
         // Let the standard converter handle edge cases.
+        const uint8_t *limit=sourceLimit;
         if(count>targetCapacity) {
+            limit-=(count-targetCapacity);
             count=targetCapacity;
         }
 
@@ -799,7 +801,7 @@ moreBytes:
             }
 
             /* copy the legal byte sequence to the target */
-            {
+            if(count>=toULength) {
                 int8_t i;
 
                 for(i=0; i<oldToULength; ++i) {
@@ -810,7 +812,15 @@ moreBytes:
                     *target++=*source++;
                 }
                 count-=toULength;
-            }
+            } else {
+                // A supplementary character that does not fit into the target.
+                // Let the standard converter handle this.
+                source-=(toULength-oldToULength);
+                pToUArgs->source=(char *)source;
+                pFromUArgs->target=(char *)target;
+                *pErrorCode=U_USING_DEFAULT_WARNING;
+                return;
+             }
         }
     }
     U_ASSERT(count>=0);
